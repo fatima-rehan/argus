@@ -8,7 +8,7 @@ import { AIChat } from "./AIChat";
 import { matchStartup, type MatchResult, type Signal } from "../lib/api";
 
 const Earth3D = dynamic(() => import("./Earth3D").then((mod) => mod.Earth3D), {
-  ssr: false
+  ssr: false,
 });
 
 export function ArgusDashboard() {
@@ -20,7 +20,10 @@ export function ArgusDashboard() {
   const [hasSearched, setHasSearched] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
 
-  const signals = useMemo(() => matches.map((match) => match.signal), [matches]);
+  const signals = useMemo(
+    () => matches.map((match) => match.signal),
+    [matches],
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -98,7 +101,8 @@ export function ArgusDashboard() {
         return Array.from(new Set(next)).slice(0, 8);
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Match request failed";
+      const message =
+        err instanceof Error ? err.message : "Match request failed";
       setError(message);
       setMatches([]);
       setActiveMatch(null);
@@ -115,12 +119,14 @@ export function ArgusDashboard() {
   return (
     <main className="relative min-h-screen bg-cyber-blue text-white overflow-hidden">
       <div className="absolute inset-0 hud-grid opacity-30" />
-      <div className="absolute inset-x-10 top-10 h-24 scanline opacity-40" />
+      <div className="absolute inset-x-0 top-0 h-full scanline opacity-40" />
 
       <header className="relative z-10 flex items-center justify-between px-10 py-6">
         <div>
           <div className="hud-title text-xs text-cyber-cyan">ARGUS</div>
-          <div className="text-[10px] text-white/50">Real-time matching of startups to relevant government signals</div>
+          <div className="text-[10px] text-white/50">
+            Matches startups to relevant government signals in real-time.
+          </div>
         </div>
         <div className="flex items-center gap-6 text-[10px] hud-mono text-white/60">
           <div className="flex items-center gap-2">
@@ -153,7 +159,7 @@ export function ArgusDashboard() {
           <div className="h-full w-full">
             <Earth3D signals={signals} onSignalClick={handleSignalClick} />
           </div>
-          <div className="absolute bottom-8 text-[10px] text-white/40 hud-mono">
+          <div className="absolute bottom-4 text-[10px] text-white/40 hud-mono">
             Click signal points for government details
           </div>
         </section>
@@ -165,8 +171,12 @@ export function ArgusDashboard() {
               subtitle={`${activeMatch.signal.city}, ${activeMatch.signal.state} · ${activeMatch.signal.category}`}
             >
               <div className="space-y-4 text-sm">
-                <div className="text-lg font-semibold text-white">{activeMatch.signal.title}</div>
-                <p className="text-white/70">{activeMatch.signal.description}</p>
+                <div className="text-lg font-semibold text-white">
+                  {activeMatch.signal.title}
+                </div>
+                <p className="text-white/70">
+                  {activeMatch.signal.description}
+                </p>
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
                     <div className="text-white/40">Budget</div>
@@ -176,7 +186,9 @@ export function ArgusDashboard() {
                   </div>
                   <div>
                     <div className="text-white/40">Timeline</div>
-                    <div className="text-white">{activeMatch.signal.timeline}</div>
+                    <div className="text-white">
+                      {activeMatch.signal.timeline}
+                    </div>
                   </div>
                 </div>
                 <div className="text-xs text-white/60">
@@ -189,6 +201,15 @@ export function ArgusDashboard() {
                       <li key={person}>• {person}</li>
                     ))}
                   </ul>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    className="rounded border border-cyber-cyan/40 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-cyber-cyan"
+                    onClick={() => setActiveSignal(null)}
+                    aria-label="Close signal detail"
+                  >
+                    back
+                  </button>
                 </div>
               </div>
             </HUDPanel>

@@ -1,16 +1,33 @@
 "use client";
 
 import { Canvas, useFrame, useLoader } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
-import type { Group, Line, Mesh, MeshStandardMaterial } from "three";
-import { BufferGeometry, Float32BufferAttribute, Quaternion, TextureLoader, Vector3 } from "three";
+import { Line as DreiLine, OrbitControls } from "@react-three/drei";
+import type { Group, Mesh, MeshStandardMaterial } from "three";
+import { Quaternion, TextureLoader, Vector3 } from "three";
 import type { ReactNode } from "react";
 import type { Signal } from "../lib/api";
 import { Component, Suspense, useMemo, useRef } from "react";
 
+export interface EarthSignal {
+  id: number;
+  lat: number;
+  lng: number;
+  title: string;
+  city: string;
+  state: string;
+  category: string;
+  description: string;
+  budget: number;
+  timeline: string;
+  stakeholders: string[];
+}
+
+type GlobeStatus = "initializing" | "stable" | "offline";
+
 interface Earth3DProps {
-  signals: Signal[];
-  onSignalClick: (signal: Signal) => void;
+  signals: EarthSignal[];
+  onSignalClick: (signal: EarthSignal) => void;
+  onStatusChange?: (status: GlobeStatus) => void;
 }
 
 const EARTH_TEXTURE =
@@ -26,13 +43,13 @@ function latLngToVector3(lat: number, lng: number, radius: number) {
   return new Vector3(
     -radius * Math.sin(phi) * Math.cos(theta),
     radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta)
+    radius * Math.sin(phi) * Math.sin(theta),
   );
 }
 
 function SignalMarker({
   position,
-  onClick
+  onClick,
 }: {
   position: Vector3;
   onClick: () => void;
@@ -41,7 +58,7 @@ function SignalMarker({
   const orbitGroupRef = useRef<Group>(null);
   const orbitRingRef = useRef<Mesh>(null);
   const orbitMaterialRef = useRef<MeshStandardMaterial>(null);
-  const pulseRef = useRef<Line>(null);
+  const pulseGroupRef = useRef<Group>(null);
   const direction = useMemo(() => position.clone().normalize(), [position]);
   const orbitRadius = useMemo(() => position.length(), [position]);
   const orbitQuaternion = useMemo(() => {
@@ -67,28 +84,28 @@ function SignalMarker({
     if (orbitMaterialRef.current) {
       orbitMaterialRef.current.emissiveIntensity = 0.75;
     }
-    if (pulseRef.current) {
+    if (pulseGroupRef.current) {
       const angle = clock.elapsedTime * 1.1;
-      pulseRef.current.rotation.z = angle;
+      pulseGroupRef.current.rotation.z = angle;
     }
   });
 
-  const pulseGeometry = useMemo(() => {
+  const pulsePoints = useMemo(() => {
     const arcLength = Math.PI * 1.85;
     const segments = 96;
-    const positions = new Float32Array((segments + 1) * 3);
+    const points: Vector3[] = [];
     for (let i = 0; i <= segments; i += 1) {
       const t = i / segments;
       const angle = t * arcLength;
-      const x = Math.cos(angle) * orbitRadius;
-      const y = Math.sin(angle) * orbitRadius;
-      positions[i * 3] = x;
-      positions[i * 3 + 1] = y;
-      positions[i * 3 + 2] = 0;
+      points.push(
+        new Vector3(
+          Math.cos(angle) * orbitRadius,
+          Math.sin(angle) * orbitRadius,
+          0,
+        ),
+      );
     }
-    const geometry = new BufferGeometry();
-    geometry.setAttribute("position", new Float32BufferAttribute(positions, 3));
-    return geometry;
+    return points;
   }, [orbitRadius]);
 
   return (
@@ -102,7 +119,11 @@ function SignalMarker({
         }}
       >
         <sphereGeometry args={[0.028, 16, 16]} />
-        <meshStandardMaterial color="#00D9FF" emissive="#00D9FF" emissiveIntensity={0.8} />
+        <meshStandardMaterial
+          color="#00D9FF"
+          emissive="#00D9FF"
+          emissiveIntensity={0.8}
+        />
       </mesh>
       <group ref={orbitGroupRef} quaternion={orbitQuaternion}>
         <mesh ref={orbitRingRef} raycast={() => null}>
@@ -116,10 +137,14 @@ function SignalMarker({
             opacity={0.75}
           />
         </mesh>
-        <line ref={pulseRef} raycast={() => null}>
-          <primitive object={pulseGeometry} attach="geometry" />
-          <lineBasicMaterial color="#8CEEFF" linewidth={2} />
-        </line>
+        <group ref={pulseGroupRef} raycast={() => null}>
+          <DreiLine
+            points={pulsePoints}
+            color="#8CEEFF"
+            lineWidth={1}
+            dashed={false}
+          />
+        </group>
       </group>
     </group>
   );
@@ -174,14 +199,22 @@ function LandDots({ map }: { map: HTMLImageElement | null }) {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[points, 3]} />
       </bufferGeometry>
-      <pointsMaterial color="#D0FBFF" size={0.016} sizeAttenuation depthWrite={false} />
+      <pointsMaterial
+        color="#D0FBFF"
+        size={0.016}
+        sizeAttenuation
+        depthWrite={false}
+      />
     </points>
   );
 }
 
 function EarthGlobe() {
   const meshRef = useRef<Mesh>(null);
-  const [colorMap, normalMap] = useLoader(TextureLoader, [EARTH_TEXTURE, EARTH_BUMP]);
+  const [colorMap, normalMap] = useLoader(TextureLoader, [
+    EARTH_TEXTURE,
+    EARTH_BUMP,
+  ]);
 
   return (
     <>
@@ -204,16 +237,27 @@ function EarthPlaceholder() {
   return (
     <mesh>
       <sphereGeometry args={[1, 64, 64]} />
-      <meshStandardMaterial color="#0b2a3d" emissive="#00D9FF" emissiveIntensity={0.2} />
+      <meshStandardMaterial
+        color="#0b2a3d"
+        emissive="#00D9FF"
+        emissiveIntensity={0.2}
+      />
     </mesh>
   );
 }
 
-class EarthErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
+class EarthErrorBoundary extends Component<
+  { children: ReactNode; onError?: () => void },
+  { hasError: boolean }
+> {
   state = { hasError: false };
 
   static getDerivedStateFromError() {
     return { hasError: true };
+  }
+
+  componentDidCatch() {
+    this.props.onError?.();
   }
 
   render() {
@@ -244,20 +288,25 @@ function Atmosphere() {
   );
 }
 
-function EarthScene({ signals, onSignalClick }: Earth3DProps) {
+function EarthScene({ signals, onSignalClick, onStatusChange }: Earth3DProps) {
   const worldRef = useRef<Group>(null);
+  const reportedRef = useRef(false);
   const markerPositions = useMemo(
     () =>
       signals.map((signal) => ({
         signal,
-        position: latLngToVector3(signal.lat, signal.lng, EARTH_RADIUS + 0.05)
+        position: latLngToVector3(signal.lat, signal.lng, EARTH_RADIUS + 0.05),
       })),
-    [signals]
+    [signals],
   );
 
   useFrame(() => {
     if (worldRef.current) {
       worldRef.current.rotation.y += 0.0015;
+      if (!reportedRef.current) {
+        onStatusChange?.("stable");
+        reportedRef.current = true;
+      }
     }
   });
 
@@ -269,7 +318,11 @@ function EarthScene({ signals, onSignalClick }: Earth3DProps) {
         <EarthGlobe />
         <Atmosphere />
         {markerPositions.map(({ signal, position }) => (
-          <SignalMarker key={signal.id} position={position} onClick={() => onSignalClick(signal)} />
+          <SignalMarker
+            key={signal.id}
+            position={position}
+            onClick={() => onSignalClick(signal)}
+          />
         ))}
       </group>
       <OrbitControls enableZoom={false} enablePan={false} />
@@ -277,13 +330,21 @@ function EarthScene({ signals, onSignalClick }: Earth3DProps) {
   );
 }
 
-export function Earth3D({ signals, onSignalClick }: Earth3DProps) {
+export function Earth3D({
+  signals,
+  onSignalClick,
+  onStatusChange,
+}: Earth3DProps) {
   return (
     <div className="h-full w-full">
-      <EarthErrorBoundary>
-      <Canvas camera={{ position: [0, 0, 2.9], fov: 45 }}>
+      <EarthErrorBoundary onError={() => onStatusChange?.("offline")}>
+        <Canvas camera={{ position: [0, 0, 2.9], fov: 45 }}>
           <Suspense fallback={<EarthPlaceholder />}>
-            <EarthScene signals={signals} onSignalClick={onSignalClick} />
+            <EarthScene
+              signals={signals}
+              onSignalClick={onSignalClick}
+              onStatusChange={onStatusChange}
+            />
           </Suspense>
         </Canvas>
       </EarthErrorBoundary>
