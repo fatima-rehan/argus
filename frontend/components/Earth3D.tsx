@@ -563,8 +563,8 @@ function LandDots({ map }: { map: HTMLImageElement | null }) {
         <bufferAttribute attach="attributes-position" args={[points, 3]} />
       </bufferGeometry>
       <pointsMaterial
-        color="#D0FBFF"
-        size={0.016}
+        color="#E5E7EB"
+        size={0.014}
         sizeAttenuation
         depthWrite={false}
       />
@@ -588,9 +588,9 @@ function EarthGlobe() {
         <meshStandardMaterial
           map={colorMap}
           normalMap={normalMap}
-          metalness={0.3}
+          metalness={0.15}
           roughness={0.9}
-          color="#0a1f2b"
+          color="#050A12"
         />
       </mesh>
       <LandDots map={colorMap?.image ?? null} />
@@ -603,9 +603,9 @@ function EarthPlaceholder() {
     <mesh>
       <sphereGeometry args={[1, 64, 64]} />
       <meshStandardMaterial
-        color="#0b2a3d"
-        emissive="#00D9FF"
-        emissiveIntensity={0.2}
+        color="#050A12"
+        emissive="#3B82F6"
+        emissiveIntensity={0.05}
       />
     </mesh>
   );

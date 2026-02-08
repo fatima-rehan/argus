@@ -13,6 +13,59 @@ const Earth3D = dynamic(() => import("./Earth3D").then((mod) => mod.Earth3D), {
 
 const DATA_CHARS = "01001 SIGNAL 10110 MATCH 00101 SCAN 11010 NODE 01100 DATA";
 
+/* ─── Helpers ───────────────────────────────────────────────── */
+
+function SegmentBar({
+  value,
+  max,
+  segments = 20,
+  color = "filled",
+}: {
+  value: number;
+  max: number;
+  segments?: number;
+  color?: "filled" | "filled-blue" | "filled-orange";
+}) {
+  const filled = max > 0 ? Math.round((value / max) * segments) : 0;
+  return (
+    <div className="segment-bar">
+      {Array.from({ length: segments }, (_, i) => (
+        <div
+          key={i}
+          className={`segment-bar-item ${i < filled ? color : ""}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function MetricBox({
+  label,
+  value,
+  active,
+}: {
+  label: string;
+  value: number;
+  active?: boolean;
+}) {
+  return (
+    <div
+      className={`flex flex-col items-center justify-center border px-3 py-2 ${
+        active ? "border-gray-600 bg-gray-900/50" : "border-gray-800"
+      }`}
+    >
+      <div className="text-sm font-semibold text-white panel-value">
+        ({value})
+      </div>
+      <div className="mt-0.5 text-[10px] uppercase tracking-wider text-gray-500">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main Dashboard ────────────────────────────────────────── */
+
 export function ArgusDashboard() {
   const [startupDescription, setStartupDescription] = useState("");
   const [matches, setMatches] = useState<MatchResult[]>([]);
@@ -20,20 +73,35 @@ export function ArgusDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
-  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [searchHistory, setSearchHistory] = useState<
+    { query: string; date: string }[]
+  >([]);
   const [searchPhase, setSearchPhase] = useState("");
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const signals = useMemo(
-    () => matches.map((match) => match.signal),
+    () => matches.map((m) => m.signal),
     [matches],
   );
 
-  // Clear any stale data from previous sessions on mount
+  const matchDistribution = useMemo(() => {
+    const high = matches.filter((m) => m.score >= 0.8).length;
+    const medium = matches.filter(
+      (m) => m.score >= 0.5 && m.score < 0.8,
+    ).length;
+    const low = matches.filter((m) => m.score < 0.5).length;
+    return { high, medium, low };
+  }, [matches]);
+
+  const avgScore = useMemo(() => {
+    if (matches.length === 0) return 0;
+    return Math.round(
+      (matches.reduce((sum, m) => sum + m.score, 0) / matches.length) * 100,
+    );
+  }, [matches]);
+
+  // Clear stale data from previous sessions
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
+    if (typeof window === "undefined") return;
     window.localStorage.removeItem("argus.matches");
     window.localStorage.removeItem("argus.startup");
     window.localStorage.removeItem("argus.history");
@@ -43,10 +111,8 @@ export function ArgusDashboard() {
   useEffect(() => {
     if (!isLoading) {
       setSearchPhase("");
-      setElapsedSeconds(0);
       return;
     }
-
     const phases = [
       "Initializing search protocol...",
       "Scanning government databases...",
@@ -54,32 +120,19 @@ export function ArgusDashboard() {
       "Matching signal patterns...",
       "Cross-referencing intelligence...",
       "Extracting opportunities...",
-      "Verifying signal coordinates...",
       "Compiling results...",
     ];
-
     let idx = 0;
     setSearchPhase(phases[0]);
-
-    const phaseTimer = setInterval(() => {
+    const timer = setInterval(() => {
       idx = (idx + 1) % phases.length;
       setSearchPhase(phases[idx]);
     }, 4000);
-
-    const elapsed = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1);
-    }, 1000);
-
-    return () => {
-      clearInterval(phaseTimer);
-      clearInterval(elapsed);
-    };
+    return () => clearInterval(timer);
   }, [isLoading]);
 
   const handleSearch = async () => {
-    if (!startupDescription.trim()) {
-      return;
-    }
+    if (!startupDescription.trim()) return;
     setIsLoading(true);
     setError(null);
     setHasSearched(true);
@@ -93,8 +146,12 @@ export function ArgusDashboard() {
       });
       setActiveMatch(response.matches[0] ?? null);
       setSearchHistory((prev) => {
-        const next = [startupDescription.trim(), ...prev];
-        return Array.from(new Set(next)).slice(0, 8);
+        const entry = {
+          query: startupDescription.trim(),
+          date: new Date().toLocaleDateString(),
+        };
+        const existing = prev.filter((h) => h.query !== entry.query);
+        return [entry, ...existing].slice(0, 10);
       });
     } catch (err) {
       const message =
@@ -107,6 +164,14 @@ export function ArgusDashboard() {
     }
   };
 
+  const handleNewSearch = () => {
+    setStartupDescription("");
+    setMatches([]);
+    setActiveMatch(null);
+    setHasSearched(false);
+    setError(null);
+  };
+
   const handleSignalClick = (signal: Signal) => {
     const match = matches.find((item) => item.signal.id === signal.id);
     setActiveMatch(match ?? null);
@@ -114,19 +179,9 @@ export function ArgusDashboard() {
 
   return (
     <main
-      className={`relative min-h-screen text-white overflow-hidden ${isLoading ? "search-active" : ""}`}
+      className={`relative flex h-screen flex-col overflow-hidden ${isLoading ? "search-active" : ""}`}
     >
-      <div className="absolute inset-0 hud-grid opacity-50" />
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute left-8 top-8 h-2 w-20 border-t border-cyber-cyan/50" />
-        <div className="absolute right-10 top-10 h-2 w-24 border-t border-cyber-cyan/50" />
-        <div className="absolute left-8 bottom-10 h-2 w-24 border-b border-cyber-cyan/50" />
-        <div className="absolute right-10 bottom-8 h-2 w-20 border-b border-cyber-cyan/50" />
-        <div className="glitch-line" />
-      </div>
-      <div className="absolute inset-x-0 top-0 h-full scanline opacity-35" />
-
-      {/* Data stream overlay — visible only during search */}
+      {/* Data stream overlay */}
       <div className="data-stream" aria-hidden="true">
         {[...Array(6)].map((_, i) => (
           <span key={i} className="data-stream-col">
@@ -135,153 +190,374 @@ export function ArgusDashboard() {
         ))}
       </div>
 
-      <header className="relative z-10 flex items-center justify-between px-10 py-6">
-        <div>
-          <div className="hud-title text-xs text-cyber-cyan hud-text-glow">
-            ARGUS
-          </div>
-          <div className="text-[10px] text-white/50">
-            {isLoading
-              ? "Global intelligence scan in progress..."
-              : "Matches startups to relevant government signals in real-time."}
-          </div>
+      {/* ─── Top Navigation Bar ─────────────────────────────────── */}
+      <header className="relative z-10 flex items-center justify-between border-b border-gray-800 px-6 py-3">
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-bold tracking-tight text-white">
+            Argus
+          </span>
+          <span className="text-[10px] text-gray-600">v2.1</span>
         </div>
-        <div className="flex items-center gap-6 text-[10px] hud-mono text-white/60">
-          <div className="flex items-center gap-2">
-            <span className="hud-dot" />
-            {isLoading ? (
-              <span className="text-matrix-green">Scanning</span>
-            ) : (
-              "Tracking"
-            )}
-          </div>
-          <div>Signals: {signals.length}</div>
-          <div>
-            Status:{" "}
-            {isLoading ? (
-              <span className="text-matrix-green">Active</span>
-            ) : (
-              "Stable"
-            )}
-          </div>
-          {isLoading && (
-            <div className="text-cyber-cyan/70">
-              T+{elapsedSeconds}s
-            </div>
+
+        <div className="flex items-center gap-3 text-[11px]">
+          <span className="px-2 py-0.5 text-gray-400 uppercase tracking-wider">
+            Search Mode
+          </span>
+          {isLoading ? (
+            <span className="border border-blue-500/40 bg-blue-500/10 px-2.5 py-0.5 text-blue-400">
+              Analyzing...
+            </span>
+          ) : hasSearched ? (
+            <span className="border border-green-500/30 bg-green-500/10 px-2.5 py-0.5 text-green-400">
+              Analysis Complete
+            </span>
+          ) : (
+            <span className="border border-gray-700 px-2.5 py-0.5 text-gray-500">
+              Idle
+            </span>
           )}
+          <span className="text-gray-600 uppercase tracking-wider">
+            Global
+          </span>
+        </div>
+
+        <div className="flex items-center gap-4 text-[11px] text-gray-500">
+          <span className="flex items-center gap-1.5">
+            <span className="dot-live" />
+            {signals.length} Signals
+          </span>
+          <span>
+            {isLoading ? (
+              <span className="text-blue-400">Active</span>
+            ) : (
+              "Ready"
+            )}
+          </span>
         </div>
       </header>
 
-      {/* Search progress bar */}
-      {isLoading && (
-        <div className="relative z-10 mx-10">
-          <div className="search-progress" />
-          <div className="mt-1 flex justify-between text-[9px] hud-mono text-cyber-cyan/60">
-            <span className="typing-cursor">{searchPhase}</span>
-            <span>LIVE</span>
-          </div>
-        </div>
-      )}
+      {/* ─── Loading progress line ──────────────────────────────── */}
+      {isLoading && <div className="search-progress-line relative z-10" />}
 
-      <div
-        className={`relative z-10 grid ${isLoading ? "h-[calc(100vh-120px)]" : "h-[calc(100vh-96px)]"} grid-cols-[280px_minmax(0,1fr)_320px] gap-6 px-10 pb-10`}
-      >
-        <aside className="flex h-full flex-col gap-6">
+      {/* ─── Three-Column Layout ────────────────────────────────── */}
+      <div className="relative z-10 flex flex-1 min-h-0">
+        {/* ─── Left Sidebar ───────────────────────────────────── */}
+        <aside className="flex w-[240px] flex-shrink-0 flex-col border-r border-gray-800 overflow-y-auto">
           <LoginPanel />
-          <AIChat
-            value={startupDescription}
-            onChange={setStartupDescription}
-            onSubmit={handleSearch}
-            loading={isLoading}
-            error={error}
-          />
+
+          {/* New Search Button */}
+          <div className="panel-section">
+            <button
+              className="w-full border border-dashed border-gray-700 px-3 py-2 text-xs text-gray-400 hover:border-gray-500 hover:text-gray-300 transition-colors"
+              onClick={handleNewSearch}
+            >
+              + New Search
+            </button>
+          </div>
+
+          {/* Search History */}
+          <div className="panel-section flex-1">
+            <div className="panel-header">
+              <span className="panel-indicator panel-indicator-blue" />
+              Search Sessions
+            </div>
+
+            {startupDescription && hasSearched && (
+              <>
+                <div className="mb-2 text-[10px] text-gray-500">Current:</div>
+                <div className="mb-3 border border-blue-500/30 bg-blue-500/5 p-2 text-xs text-gray-300 leading-relaxed">
+                  {startupDescription.length > 80
+                    ? startupDescription.slice(0, 80) + "..."
+                    : startupDescription}
+                </div>
+              </>
+            )}
+
+            {searchHistory.length > 0 ? (
+              <div className="space-y-2">
+                {searchHistory.map((entry, i) => (
+                  <button
+                    key={i}
+                    className="w-full text-left border border-gray-800 p-2 hover:border-gray-600 transition-colors"
+                    onClick={() => {
+                      setStartupDescription(entry.query);
+                    }}
+                  >
+                    <div className="text-xs text-gray-400 truncate">
+                      {entry.query}
+                    </div>
+                    <div className="mt-1 text-[10px] text-gray-600">
+                      {entry.date}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-[10px] text-gray-600">
+                No previous sessions
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-gray-800 px-4 py-2 text-[10px] text-gray-600">
+            Version 2.1
+          </div>
         </aside>
 
-        <section className="relative flex h-full flex-col items-center justify-center">
-          <div className="h-full w-full">
+        {/* ─── Center: Globe + Command Bar ────────────────────── */}
+        <section className="relative flex flex-1 flex-col">
+          <div className="flex-1 min-h-0">
             <Earth3D
               signals={signals}
               onSignalClick={handleSignalClick}
               isSearching={isLoading}
             />
           </div>
-          <div className="absolute bottom-6 flex w-full items-center justify-between px-6 text-[10px] text-white/50 hud-mono">
-            <div>LAT: 40.7128° N</div>
-            <div>LONG: 74.0060° W</div>
-            <div
-              className={
-                isLoading ? "text-matrix-green" : "text-cyber-cyan/70"
-              }
-            >
-              {isLoading ? "SCANNING" : "STABLE"}
+
+          {/* Search phase text during loading */}
+          {isLoading && searchPhase && (
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 text-[10px] text-blue-400/70 panel-value">
+              {searchPhase}
             </div>
+          )}
+
+          {/* Bottom Command Bar */}
+          <div className="absolute bottom-6 left-1/2 z-20 w-[65%] -translate-x-1/2">
+            <AIChat
+              value={startupDescription}
+              onChange={setStartupDescription}
+              onSubmit={handleSearch}
+              loading={isLoading}
+              error={error}
+            />
           </div>
         </section>
 
-        <aside className="flex h-full flex-col gap-6">
-          {activeMatch ? (
-            <HUDPanel
-              title="Signal Detail"
-              subtitle={`${activeMatch.signal.city || activeMatch.signal.country || "Unknown"}${activeMatch.signal.state ? `, ${activeMatch.signal.state}` : ""} · ${activeMatch.signal.category}`}
-            >
-              <div className="space-y-4 text-sm">
-                <div className="text-lg font-semibold text-white">
+        {/* ─── Right Sidebar ──────────────────────────────────── */}
+        <aside className="flex w-[280px] flex-shrink-0 flex-col border-l border-gray-800 overflow-y-auto">
+          {/* Search Status */}
+          <HUDPanel
+            title="Search Status"
+            indicator="green"
+            statusText={isLoading ? "ACTIVE" : hasSearched ? "COMPLETE" : "IDLE"}
+          >
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-500">Impact Score</span>
+                <span className="text-white panel-value">{avgScore}</span>
+              </div>
+              <div>
+                <SegmentBar value={avgScore} max={100} />
+                <div className="mt-1 flex justify-between text-[9px] text-gray-600">
+                  <span>0</span>
+                  <span>100</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-500">Status:</span>
+                <span
+                  className={
+                    isLoading
+                      ? "text-blue-400"
+                      : avgScore > 70
+                        ? "text-green-400"
+                        : avgScore > 40
+                          ? "text-yellow-400"
+                          : "text-gray-400"
+                  }
+                >
+                  {isLoading
+                    ? "SCANNING"
+                    : avgScore > 70
+                      ? "STRONG"
+                      : avgScore > 40
+                        ? "MODERATE"
+                        : hasSearched
+                          ? "WEAK"
+                          : "STANDBY"}
+                </span>
+              </div>
+            </div>
+          </HUDPanel>
+
+          {/* Match Activity */}
+          <HUDPanel title="Match Activity" indicator="blue">
+            <div className="grid grid-cols-3 gap-2">
+              <MetricBox
+                label="High"
+                value={matchDistribution.high}
+                active={matchDistribution.high > 0}
+              />
+              <MetricBox
+                label="Medium"
+                value={matchDistribution.medium}
+                active={matchDistribution.medium > 0}
+              />
+              <MetricBox
+                label="Low"
+                value={matchDistribution.low}
+                active={matchDistribution.low > 0}
+              />
+            </div>
+          </HUDPanel>
+
+          {/* Match Breakdown */}
+          <HUDPanel title="Match Breakdown" indicator="orange">
+            <div className="space-y-3">
+              <div>
+                <div className="mb-1.5 flex items-center gap-2 text-[10px]">
+                  <span className="panel-indicator panel-indicator-green" style={{ width: 6, height: 6 }} />
+                  <span className="uppercase tracking-wider text-gray-500">
+                    High Engagement
+                  </span>
+                  <span className="ml-auto text-gray-400 panel-value">
+                    {matchDistribution.high}
+                  </span>
+                </div>
+                <SegmentBar
+                  value={matchDistribution.high}
+                  max={Math.max(matches.length, 1)}
+                />
+              </div>
+              <div>
+                <div className="mb-1.5 flex items-center gap-2 text-[10px]">
+                  <span className="panel-indicator panel-indicator-orange" style={{ width: 6, height: 6 }} />
+                  <span className="uppercase tracking-wider text-gray-500">
+                    Medium Engagement
+                  </span>
+                  <span className="ml-auto text-gray-400 panel-value">
+                    {matchDistribution.medium}
+                  </span>
+                </div>
+                <SegmentBar
+                  value={matchDistribution.medium}
+                  max={Math.max(matches.length, 1)}
+                  color="filled-orange"
+                />
+              </div>
+              <div>
+                <div className="mb-1.5 flex items-center gap-2 text-[10px]">
+                  <span className="panel-indicator panel-indicator-red" style={{ width: 6, height: 6 }} />
+                  <span className="uppercase tracking-wider text-gray-500">
+                    Low Engagement
+                  </span>
+                  <span className="ml-auto text-gray-400 panel-value">
+                    {matchDistribution.low}
+                  </span>
+                </div>
+                <SegmentBar
+                  value={matchDistribution.low}
+                  max={Math.max(matches.length, 1)}
+                  color="filled-blue"
+                />
+              </div>
+            </div>
+          </HUDPanel>
+
+          {/* Signal Detail */}
+          <HUDPanel
+            title="Signal Detail"
+            indicator="blue"
+            statusText={activeMatch ? "SELECTED" : ""}
+          >
+            {activeMatch ? (
+              <div className="space-y-3">
+                <div className="text-sm font-semibold text-white leading-tight">
                   {activeMatch.signal.title}
                 </div>
-                <p className="text-white/70">
+                <div className="text-[10px] text-gray-500">
+                  {activeMatch.signal.city ||
+                    activeMatch.signal.country ||
+                    "Unknown"}
+                  {activeMatch.signal.state
+                    ? `, ${activeMatch.signal.state}`
+                    : ""}{" "}
+                  &middot; {activeMatch.signal.category}
+                </div>
+                <p className="text-xs text-gray-400 leading-relaxed">
                   {activeMatch.signal.description}
                 </p>
-                <div className="grid grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <div className="text-white/40">Budget</div>
-                    <div className="hud-mono text-white">
+                <div className="grid grid-cols-2 gap-2 text-[10px]">
+                  <div className="border border-gray-800 p-2">
+                    <div className="text-gray-600 uppercase tracking-wider">
+                      Budget
+                    </div>
+                    <div className="mt-0.5 text-xs text-white panel-value">
                       {activeMatch.signal.budget
                         ? `$${(activeMatch.signal.budget / 1000000).toFixed(1)}M`
                         : "N/A"}
                     </div>
                   </div>
-                  <div>
-                    <div className="text-white/40">Timeline</div>
-                    <div className="text-white">
+                  <div className="border border-gray-800 p-2">
+                    <div className="text-gray-600 uppercase tracking-wider">
+                      Timeline
+                    </div>
+                    <div className="mt-0.5 text-xs text-white">
                       {activeMatch.signal.timeline}
                     </div>
                   </div>
                 </div>
-                <div className="text-xs text-white/60">
-                  Match Score: {Math.round(activeMatch.score * 100)}%
+                <div className="flex items-center gap-2 text-[10px]">
+                  <span className="text-gray-600">Match:</span>
+                  <div className="flex-1">
+                    <SegmentBar
+                      value={Math.round(activeMatch.score * 100)}
+                      max={100}
+                      color="filled-blue"
+                      segments={15}
+                    />
+                  </div>
+                  <span className="text-white panel-value">
+                    {Math.round(activeMatch.score * 100)}%
+                  </span>
                 </div>
-                <div>
-                  <div className="text-white/40 text-xs">Stakeholders</div>
-                  <ul className="mt-2 space-y-1 text-xs text-white/80">
-                    {activeMatch.signal.stakeholders.map((person) => (
-                      <li key={person}>• {person}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="flex justify-end">
-                  <button
-                    className="rounded border border-cyber-cyan/60 bg-cyber-cyan/20 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-cyber-cyan hover:bg-cyber-cyan/30"
-                    onClick={() => setActiveMatch(null)}
-                    aria-label="Close signal detail"
-                  >
-                    Back
-                  </button>
-                </div>
+                {activeMatch.signal.stakeholders.length > 0 && (
+                  <div>
+                    <div className="mb-1 text-[10px] text-gray-600 uppercase tracking-wider">
+                      Stakeholders
+                    </div>
+                    <ul className="space-y-0.5">
+                      {activeMatch.signal.stakeholders.map((p) => (
+                        <li key={p} className="text-[11px] text-gray-400">
+                          {p}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <button
+                  className="w-full border border-gray-800 px-3 py-1.5 text-[10px] text-gray-500 uppercase tracking-wider hover:bg-gray-900 transition-colors"
+                  onClick={() => setActiveMatch(null)}
+                >
+                  Deselect
+                </button>
               </div>
-            </HUDPanel>
-          ) : (
-            <HUDPanel title="Signal Detail" subtitle="Awaiting selection">
-              <div className="text-sm text-white/60">
+            ) : (
+              <div className="text-xs text-gray-600">
                 {isLoading
                   ? "Matching signals..."
                   : signals.length > 0
-                    ? "Select a signal pin to view government entities."
+                    ? "Select a signal on the globe."
                     : hasSearched
-                      ? "No matches found. Try another description."
-                      : "Select a signal pin to view government entities."}
+                      ? "No matches found."
+                      : "Awaiting analysis input."}
               </div>
-            </HUDPanel>
-          )}
+            )}
+          </HUDPanel>
+
+          {/* Current Query */}
+          <HUDPanel title="Analysis Input" indicator="orange">
+            {startupDescription ? (
+              <div className="border border-gray-800 p-2 text-xs text-gray-400 leading-relaxed">
+                {startupDescription}
+              </div>
+            ) : (
+              <div className="text-xs text-gray-600">
+                No query submitted yet.
+              </div>
+            )}
+          </HUDPanel>
         </aside>
       </div>
     </main>
