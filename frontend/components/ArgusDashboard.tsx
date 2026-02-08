@@ -179,7 +179,7 @@ export function ArgusDashboard() {
 
   return (
     <main
-      className={`relative flex h-screen flex-col overflow-hidden ${isLoading ? "search-active" : ""}`}
+      className={`relative flex h-screen max-h-screen flex-col overflow-hidden ${isLoading ? "search-active" : ""}`}
     >
       {/* Data stream overlay */}
       <div className="data-stream" aria-hidden="true">
@@ -240,7 +240,7 @@ export function ArgusDashboard() {
       {isLoading && <div className="search-progress-line relative z-10" />}
 
       {/* ─── Three-Column Layout ────────────────────────────────── */}
-      <div className="relative z-10 flex flex-1 min-h-0 p-3">
+      <div className="relative z-10 flex flex-1 min-h-0 overflow-hidden p-3">
         {/* ─── Left Sidebar ───────────────────────────────────── */}
         <aside className="flex w-[240px] flex-shrink-0 flex-col border-r border-gray-800 overflow-y-auto">
           <LoginPanel />
@@ -335,7 +335,7 @@ export function ArgusDashboard() {
         </section>
 
         {/* ─── Right Sidebar ──────────────────────────────────── */}
-        <aside className="flex w-[280px] flex-shrink-0 flex-col border-l border-gray-800 overflow-y-auto">
+        <aside className="flex w-[280px] flex-shrink-0 flex-col border-l border-gray-800 overflow-y-auto overflow-x-hidden pb-4">
           {/* Search Status */}
           <HUDPanel
             title="Search Status"
