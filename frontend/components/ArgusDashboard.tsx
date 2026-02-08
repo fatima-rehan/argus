@@ -11,6 +11,8 @@ const Earth3D = dynamic(() => import("./Earth3D").then((mod) => mod.Earth3D), {
   ssr: false,
 });
 
+const DATA_CHARS = "01001 SIGNAL 10110 MATCH 00101 SCAN 11010 NODE 01100 DATA";
+
 export function ArgusDashboard() {
   const [startupDescription, setStartupDescription] = useState("");
   const [matches, setMatches] = useState<MatchResult[]>([]);
@@ -19,66 +21,60 @@ export function ArgusDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [searchPhase, setSearchPhase] = useState("");
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const signals = useMemo(
     () => matches.map((match) => match.signal),
     [matches],
   );
 
+  // Clear any stale data from previous sessions on mount
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
-    const storedMatches = window.localStorage.getItem("argus.matches");
-    const storedStartup = window.localStorage.getItem("argus.startup");
-    const storedHistory = window.localStorage.getItem("argus.history");
-    if (storedMatches) {
-      try {
-        const parsed = JSON.parse(storedMatches) as MatchResult[];
-        if (Array.isArray(parsed)) {
-          setMatches(parsed);
-          setActiveMatch(parsed[0] ?? null);
-          setHasSearched(parsed.length > 0);
-        }
-      } catch {
-        // ignore malformed cache
-      }
-    }
-    if (storedStartup) {
-      setStartupDescription(storedStartup);
-    }
-    if (storedHistory) {
-      try {
-        const parsed = JSON.parse(storedHistory) as string[];
-        if (Array.isArray(parsed)) {
-          setSearchHistory(parsed);
-        }
-      } catch {
-        // ignore malformed cache
-      }
-    }
+    window.localStorage.removeItem("argus.matches");
+    window.localStorage.removeItem("argus.startup");
+    window.localStorage.removeItem("argus.history");
   }, []);
 
+  // Animated search phase text
   useEffect(() => {
-    if (typeof window === "undefined") {
+    if (!isLoading) {
+      setSearchPhase("");
+      setElapsedSeconds(0);
       return;
     }
-    window.localStorage.setItem("argus.matches", JSON.stringify(matches));
-  }, [matches]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    window.localStorage.setItem("argus.startup", startupDescription);
-  }, [startupDescription]);
+    const phases = [
+      "Initializing search protocol...",
+      "Scanning government databases...",
+      "Analyzing procurement signals...",
+      "Matching signal patterns...",
+      "Cross-referencing intelligence...",
+      "Extracting opportunities...",
+      "Verifying signal coordinates...",
+      "Compiling results...",
+    ];
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    window.localStorage.setItem("argus.history", JSON.stringify(searchHistory));
-  }, [searchHistory]);
+    let idx = 0;
+    setSearchPhase(phases[0]);
+
+    const phaseTimer = setInterval(() => {
+      idx = (idx + 1) % phases.length;
+      setSearchPhase(phases[idx]);
+    }, 4000);
+
+    const elapsed = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+
+    return () => {
+      clearInterval(phaseTimer);
+      clearInterval(elapsed);
+    };
+  }, [isLoading]);
 
   const handleSearch = async () => {
     if (!startupDescription.trim()) {
@@ -117,7 +113,9 @@ export function ArgusDashboard() {
   };
 
   return (
-    <main className="relative min-h-screen text-white overflow-hidden">
+    <main
+      className={`relative min-h-screen text-white overflow-hidden ${isLoading ? "search-active" : ""}`}
+    >
       <div className="absolute inset-0 hud-grid opacity-50" />
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute left-8 top-8 h-2 w-20 border-t border-cyber-cyan/50" />
@@ -128,24 +126,66 @@ export function ArgusDashboard() {
       </div>
       <div className="absolute inset-x-0 top-0 h-full scanline opacity-35" />
 
+      {/* Data stream overlay — visible only during search */}
+      <div className="data-stream" aria-hidden="true">
+        {[...Array(6)].map((_, i) => (
+          <span key={i} className="data-stream-col">
+            {DATA_CHARS.repeat(8)}
+          </span>
+        ))}
+      </div>
+
       <header className="relative z-10 flex items-center justify-between px-10 py-6">
         <div>
-          <div className="hud-title text-xs text-cyber-cyan hud-text-glow">ARGUS</div>
+          <div className="hud-title text-xs text-cyber-cyan hud-text-glow">
+            ARGUS
+          </div>
           <div className="text-[10px] text-white/50">
-            Matches startups to relevant government signals in real-time.
+            {isLoading
+              ? "Global intelligence scan in progress..."
+              : "Matches startups to relevant government signals in real-time."}
           </div>
         </div>
         <div className="flex items-center gap-6 text-[10px] hud-mono text-white/60">
           <div className="flex items-center gap-2">
             <span className="hud-dot" />
-            {isLoading ? "Searching" : "Tracking"}
+            {isLoading ? (
+              <span className="text-matrix-green">Scanning</span>
+            ) : (
+              "Tracking"
+            )}
           </div>
           <div>Signals: {signals.length}</div>
-          <div>Status: Stable</div>
+          <div>
+            Status:{" "}
+            {isLoading ? (
+              <span className="text-matrix-green">Active</span>
+            ) : (
+              "Stable"
+            )}
+          </div>
+          {isLoading && (
+            <div className="text-cyber-cyan/70">
+              T+{elapsedSeconds}s
+            </div>
+          )}
         </div>
       </header>
 
-      <div className="relative z-10 grid h-[calc(100vh-96px)] grid-cols-[280px_minmax(0,1fr)_320px] gap-6 px-10 pb-10">
+      {/* Search progress bar */}
+      {isLoading && (
+        <div className="relative z-10 mx-10">
+          <div className="search-progress" />
+          <div className="mt-1 flex justify-between text-[9px] hud-mono text-cyber-cyan/60">
+            <span className="typing-cursor">{searchPhase}</span>
+            <span>LIVE</span>
+          </div>
+        </div>
+      )}
+
+      <div
+        className={`relative z-10 grid ${isLoading ? "h-[calc(100vh-120px)]" : "h-[calc(100vh-96px)]"} grid-cols-[280px_minmax(0,1fr)_320px] gap-6 px-10 pb-10`}
+      >
         <aside className="flex h-full flex-col gap-6">
           <LoginPanel />
           <AIChat
@@ -159,12 +199,22 @@ export function ArgusDashboard() {
 
         <section className="relative flex h-full flex-col items-center justify-center">
           <div className="h-full w-full">
-            <Earth3D signals={signals} onSignalClick={handleSignalClick} />
+            <Earth3D
+              signals={signals}
+              onSignalClick={handleSignalClick}
+              isSearching={isLoading}
+            />
           </div>
           <div className="absolute bottom-6 flex w-full items-center justify-between px-6 text-[10px] text-white/50 hud-mono">
             <div>LAT: 40.7128° N</div>
             <div>LONG: 74.0060° W</div>
-            <div className="text-cyber-cyan/70">STABLE</div>
+            <div
+              className={
+                isLoading ? "text-matrix-green" : "text-cyber-cyan/70"
+              }
+            >
+              {isLoading ? "SCANNING" : "STABLE"}
+            </div>
           </div>
         </section>
 
