@@ -16,13 +16,76 @@ html, body {
 body {
   background: #0A1929;
   color: white;
-  font-family: "Space Grotesk", system-ui, -apple-system, sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
 }
 
 @layer utilities {
   .glass-panel {
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.12);
+    -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
+  }
+
+  .hud-outline {
+    border: 1px solid rgba(0, 217, 255, 0.35);
+    box-shadow: 0 0 24px rgba(0, 217, 255, 0.2);
+  }
+
+  .hud-title {
+    font-family: var(--font-orbitron), system-ui, sans-serif;
+    letter-spacing: 0.18em;
+  }
+
+  .hud-mono {
+    font-family: var(--font-roboto-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
+
+  .hud-grid {
+    background-image:
+      linear-gradient(rgba(0, 217, 255, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 217, 255, 0.08) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  .hud-corners {
+    position: relative;
+  }
+
+  .hud-corners::before,
+  .hud-corners::after {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(0, 217, 255, 0.7);
+  }
+
+  .hud-corners::before {
+    top: -6px;
+    left: -6px;
+    border-right: none;
+    border-bottom: none;
+  }
+
+  .hud-corners::after {
+    bottom: -6px;
+    right: -6px;
+    border-left: none;
+    border-top: none;
+  }
+
+  .scanline {
+    background: linear-gradient(transparent, rgba(0, 217, 255, 0.12), transparent);
+    animation: scan 6s linear infinite;
+  }
+}
+
+@keyframes scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
   }
 }
