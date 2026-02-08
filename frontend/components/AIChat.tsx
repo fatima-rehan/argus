@@ -20,12 +20,13 @@ export function AIChat() {
     <HUDPanel title="AI Assistant" subtitle="Argus search system online">
       <div className="space-y-3">
         <div className="rounded border border-cyber-cyan/20 bg-black/40 p-3 text-xs text-white/80">
-          How can I assist you?
+          Hello, how can I assist you?
           <div className="mt-2 text-[10px] text-white/40">{openedAt}</div>
         </div>
         <div className="rounded border border-cyber-cyan/20 bg-black/30 px-3 py-2">
-          <input
-            className="w-full bg-transparent text-xs text-white placeholder:text-white/50 focus:outline-none"
+          <textarea
+            className="w-full resize-none bg-transparent text-xs text-white placeholder:text-white/50 focus:outline-none"
+            rows={3}
             placeholder="Type a message..."
           />
         </div>

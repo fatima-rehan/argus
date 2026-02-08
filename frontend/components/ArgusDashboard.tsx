@@ -57,24 +57,27 @@ const signals = [
 
 export function ArgusDashboard() {
   const [activeSignal, setActiveSignal] = useState<(typeof signals)[number] | null>(null);
+  const [globeStatus, setGlobeStatus] = useState<"initializing" | "stable" | "offline">(
+    "initializing"
+  );
 
   return (
     <main className="relative min-h-screen bg-cyber-blue text-white overflow-hidden">
       <div className="absolute inset-0 hud-grid opacity-30" />
-      <div className="absolute inset-x-10 top-10 h-24 scanline opacity-40" />
+      <div className="absolute inset-x-0 top-0 h-full scanline opacity-40" />
 
       <header className="relative z-10 flex items-center justify-between px-10 py-6">
         <div>
           <div className="hud-title text-xs text-cyber-cyan">ARGUS</div>
-          <div className="text-[10px] text-white/50">Real-time matching of startups to relevant government signals</div>
+          <div className="text-[10px] text-white/50">Matches startups to relevant government signals in real-time.</div>
         </div>
         <div className="flex items-center gap-6 text-[10px] hud-mono text-white/60">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-cyber-cyan shadow-[0_0_8px_rgba(0,217,255,0.8)]" />
             Tracking
           </div>
-          <div>Signals: 23</div>
-          <div>Status: Stable</div>
+          <div>Signals: {signals.length}</div>
+          <div>Status: {globeStatus === "initializing" ? "Initializing" : globeStatus}</div>
         </div>
       </header>
 
@@ -91,9 +94,13 @@ export function ArgusDashboard() {
             </div>
           </div>
           <div className="h-full w-full">
-            <Earth3D signals={signals} onSignalClick={setActiveSignal} />
+            <Earth3D
+              signals={signals}
+              onSignalClick={setActiveSignal}
+              onStatusChange={setGlobeStatus}
+            />
           </div>
-          <div className="absolute bottom-8 text-[10px] text-white/40 hud-mono">
+          <div className="absolute bottom-4 text-[10px] text-white/40 hud-mono">
             Click signal points for government details
           </div>
         </section>
@@ -126,6 +133,15 @@ export function ArgusDashboard() {
                       <li key={person}>• {person}</li>
                     ))}
                   </ul>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    className="rounded border border-cyber-cyan/40 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-cyber-cyan"
+                    onClick={() => setActiveSignal(null)}
+                    aria-label="Close signal detail"
+                  >
+                    back
+                  </button>
                 </div>
               </div>
             </HUDPanel>
