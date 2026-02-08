@@ -101,6 +101,7 @@ Serper (search) → Jina (read/clean) → Gemini (extract signals)
 ```
 
 Fallback order:
+
 1. Live scrape → results
 2. Cache (if recent)
 3. File fallback (`signals.json`) when enabled
@@ -130,9 +131,9 @@ Argus/
 
 ## 👥 Contributors
 
-- Dunura epasingag
+- Dunura Epasingag
 - Raihan Carder
-- Fatima Reehn
+- Fatima Rehan
 - Akshay Krishna Sirigana
 
 ## 📝 Notes
