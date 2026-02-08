@@ -91,7 +91,7 @@ Task: Write exactly 2 sentences explaining why this startup matches this opportu
 
 Requirements:
 - Sentence 1: State the specific startup capability that addresses the government need
-- Sentence 2: Mention the budget/timeline/stakeholder to show you understand the context
+- Sentence 2: Mention the budget, timeline, or a stakeholder to show you understand the context
 - Be concrete and specific
 - No fluff or generic statements
 - Maximum 50 words total
@@ -181,7 +181,22 @@ REGARDING (Opportunity):
 - Timeline: {signal.get('timeline', '')}
 - Match Score: {request.match_score}%
 
-TASK: Write a concise 3-paragraph email.
+TASK: Write a concise 3-paragraph email:
+
+Paragraph 1 (Introduction):
+- Reference the specific government initiative
+- Explain why you're reaching out
+- Mention how you learned about this (council minutes, strategic plan, etc.)
+
+Paragraph 2 (Value Proposition):
+- Highlight 2-3 specific capabilities that address their needs
+- Use concrete metrics if available
+- Show you understand their requirements
+
+Paragraph 3 (Call to Action):
+- Request a 30-minute introductory call
+- Suggest next steps
+- Provide availability
 
 REQUIREMENTS:
 - Professional but not stiff

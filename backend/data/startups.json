@@ -8,5 +8,45 @@
     "id": 2,
     "name": "CloudBridge",
     "description": "We provide secure cloud migration and disaster recovery tooling tailored for public sector IT teams."
+  },
+  {
+    "id": 3,
+    "name": "CivicSight",
+    "description": "We create executive dashboards that unify data from multiple departments with governance, lineage, and audit trails."
+  },
+  {
+    "id": 4,
+    "name": "PermitFlow AI",
+    "description": "We automate permitting intake using document AI to extract fields, flag missing info, and reduce review time by 50%."
+  },
+  {
+    "id": 5,
+    "name": "TransitPulse",
+    "description": "We optimize public transit routing with ML to reduce delays and improve on-time performance."
+  },
+  {
+    "id": 6,
+    "name": "HealthQueue",
+    "description": "We modernize clinic scheduling with SMS reminders, intake triage, and no-show reduction analytics."
+  },
+  {
+    "id": 7,
+    "name": "PotholeVision",
+    "description": "We use computer vision to detect roadway defects and prioritize maintenance work orders."
+  },
+  {
+    "id": 8,
+    "name": "OpenDataHub",
+    "description": "We deliver open data portals with fast search, public APIs, and dataset quality scoring."
+  },
+  {
+    "id": 9,
+    "name": "FloodCast",
+    "description": "We provide AI-powered flood forecasting and resource allocation tools for emergency management."
+  },
+  {
+    "id": 10,
+    "name": "SecureEndpoint",
+    "description": "We manage endpoint protection and device compliance at scale with automated patching and EDR integration."
   }
 ]
