@@ -1,62 +1,116 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { HUDPanel } from "./HUDPanel";
 import { LoginPanel } from "./LoginPanel";
 import { AIChat } from "./AIChat";
+import { matchStartup, type MatchResult, type Signal } from "../lib/api";
 
 const Earth3D = dynamic(() => import("./Earth3D").then((mod) => mod.Earth3D), {
   ssr: false
 });
 
-const signals = [
-  {
-    id: 1,
-    lat: 30.2672,
-    lng: -97.7431,
-    city: "Austin",
-    state: "TX",
-    category: "Cybersecurity",
-    title: "SOC Platform Modernization",
-    description:
-      "City council approved $1.5M for AI-driven threat detection and automated incident response.",
-    budget: 1500000,
-    timeline: "Q2 2024",
-    stakeholders: ["John Smith (IT Director)", "Jane Doe (CISO)"]
-  },
-  {
-    id: 2,
-    lat: 29.7604,
-    lng: -95.3698,
-    city: "Houston",
-    state: "TX",
-    category: "Cloud Infrastructure",
-    title: "Enterprise Cloud Migration",
-    description:
-      "Houston is launching a $3.2M hybrid cloud migration with strict security and compliance targets.",
-    budget: 3200000,
-    timeline: "Q3 2024",
-    stakeholders: ["Mike Johnson (CTO)"]
-  },
-  {
-    id: 3,
-    lat: 37.7749,
-    lng: -122.4194,
-    city: "San Francisco",
-    state: "CA",
-    category: "AI/ML Solutions",
-    title: "Citywide AI Analytics",
-    description:
-      "Deploy AI analytics to optimize public services, with a focus on real-time dashboards and alerts.",
-    budget: 2200000,
-    timeline: "Q1 2025",
-    stakeholders: ["Priya Patel (Data Director)"]
-  }
-];
-
 export function ArgusDashboard() {
-  const [activeSignal, setActiveSignal] = useState<(typeof signals)[number] | null>(null);
+  const [startupDescription, setStartupDescription] = useState("");
+  const [matches, setMatches] = useState<MatchResult[]>([]);
+  const [activeMatch, setActiveMatch] = useState<MatchResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+
+  const signals = useMemo(() => matches.map((match) => match.signal), [matches]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const storedMatches = window.localStorage.getItem("argus.matches");
+    const storedStartup = window.localStorage.getItem("argus.startup");
+    const storedHistory = window.localStorage.getItem("argus.history");
+    if (storedMatches) {
+      try {
+        const parsed = JSON.parse(storedMatches) as MatchResult[];
+        if (Array.isArray(parsed)) {
+          setMatches(parsed);
+          setActiveMatch(parsed[0] ?? null);
+          setHasSearched(parsed.length > 0);
+        }
+      } catch {
+        // ignore malformed cache
+      }
+    }
+    if (storedStartup) {
+      setStartupDescription(storedStartup);
+    }
+    if (storedHistory) {
+      try {
+        const parsed = JSON.parse(storedHistory) as string[];
+        if (Array.isArray(parsed)) {
+          setSearchHistory(parsed);
+        }
+      } catch {
+        // ignore malformed cache
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem("argus.matches", JSON.stringify(matches));
+  }, [matches]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem("argus.startup", startupDescription);
+  }, [startupDescription]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem("argus.history", JSON.stringify(searchHistory));
+  }, [searchHistory]);
+
+  const handleSearch = async () => {
+    if (!startupDescription.trim()) {
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    setHasSearched(true);
+    try {
+      const response = await matchStartup(startupDescription.trim());
+      setMatches((prev) => {
+        const merged = new Map<number, MatchResult>();
+        prev.forEach((item) => merged.set(item.signal.id, item));
+        response.matches.forEach((item) => merged.set(item.signal.id, item));
+        return Array.from(merged.values());
+      });
+      setActiveMatch(response.matches[0] ?? null);
+      setSearchHistory((prev) => {
+        const next = [startupDescription.trim(), ...prev];
+        return Array.from(new Set(next)).slice(0, 8);
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Match request failed";
+      setError(message);
+      setMatches([]);
+      setActiveMatch(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignalClick = (signal: Signal) => {
+    const match = matches.find((item) => item.signal.id === signal.id);
+    setActiveMatch(match ?? null);
+  };
 
   return (
     <main className="relative min-h-screen bg-cyber-blue text-white overflow-hidden">
@@ -71,9 +125,9 @@ export function ArgusDashboard() {
         <div className="flex items-center gap-6 text-[10px] hud-mono text-white/60">
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-cyber-cyan shadow-[0_0_8px_rgba(0,217,255,0.8)]" />
-            Tracking
+            {isLoading ? "Searching" : "Tracking"}
           </div>
-          <div>Signals: 23</div>
+          <div>Signals: {signals.length}</div>
           <div>Status: Stable</div>
         </div>
       </header>
@@ -81,7 +135,13 @@ export function ArgusDashboard() {
       <div className="relative z-10 grid h-[calc(100vh-96px)] grid-cols-[280px_minmax(0,1fr)_320px] gap-6 px-10 pb-10">
         <aside className="flex h-full flex-col gap-6">
           <LoginPanel />
-          <AIChat />
+          <AIChat
+            value={startupDescription}
+            onChange={setStartupDescription}
+            onSubmit={handleSearch}
+            loading={isLoading}
+            error={error}
+          />
         </aside>
 
         <section className="relative flex h-full flex-col items-center justify-center">
@@ -91,7 +151,7 @@ export function ArgusDashboard() {
             </div>
           </div>
           <div className="h-full w-full">
-            <Earth3D signals={signals} onSignalClick={setActiveSignal} />
+            <Earth3D signals={signals} onSignalClick={handleSignalClick} />
           </div>
           <div className="absolute bottom-8 text-[10px] text-white/40 hud-mono">
             Click signal points for government details
@@ -99,30 +159,33 @@ export function ArgusDashboard() {
         </section>
 
         <aside className="flex h-full flex-col gap-6">
-          {activeSignal ? (
+          {activeMatch ? (
             <HUDPanel
               title="Signal Detail"
-              subtitle={`${activeSignal.city}, ${activeSignal.state} · ${activeSignal.category}`}
+              subtitle={`${activeMatch.signal.city}, ${activeMatch.signal.state} · ${activeMatch.signal.category}`}
             >
               <div className="space-y-4 text-sm">
-                <div className="text-lg font-semibold text-white">{activeSignal.title}</div>
-                <p className="text-white/70">{activeSignal.description}</p>
+                <div className="text-lg font-semibold text-white">{activeMatch.signal.title}</div>
+                <p className="text-white/70">{activeMatch.signal.description}</p>
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
                     <div className="text-white/40">Budget</div>
                     <div className="hud-mono text-white">
-                      ${(activeSignal.budget / 1000000).toFixed(1)}M
+                      ${(activeMatch.signal.budget / 1000000).toFixed(1)}M
                     </div>
                   </div>
                   <div>
                     <div className="text-white/40">Timeline</div>
-                    <div className="text-white">{activeSignal.timeline}</div>
+                    <div className="text-white">{activeMatch.signal.timeline}</div>
                   </div>
+                </div>
+                <div className="text-xs text-white/60">
+                  Match Score: {Math.round(activeMatch.score * 100)}%
                 </div>
                 <div>
                   <div className="text-white/40 text-xs">Stakeholders</div>
                   <ul className="mt-2 space-y-1 text-xs text-white/80">
-                    {activeSignal.stakeholders.map((person) => (
+                    {activeMatch.signal.stakeholders.map((person) => (
                       <li key={person}>• {person}</li>
                     ))}
                   </ul>
@@ -132,7 +195,11 @@ export function ArgusDashboard() {
           ) : (
             <HUDPanel title="Signal Detail" subtitle="Awaiting selection">
               <div className="text-sm text-white/60">
-                Select a signal pin to view government entities.
+                {isLoading
+                  ? "Matching signals..."
+                  : hasSearched
+                    ? "No matches found. Try another description."
+                    : "Enter a startup description to generate matches."}
               </div>
             </HUDPanel>
           )}

@@ -168,19 +168,32 @@ def match_startup(request: MatchRequest) -> dict[str, Any]:
     if not signals:
         return {"matches": []}
 
-    startup_embedding = get_embedding(request.startup_description)
+    startup_embedding: list[float] | None = None
+    embedding_error: str | None = None
+    if GEMINI_API_KEY:
+        try:
+            startup_embedding = get_embedding(request.startup_description)
+        except HTTPException as exc:
+            embedding_error = str(exc.detail)
+            startup_embedding = None
     matches: list[dict[str, Any]] = []
 
     for signal in signals:
         signal_text = get_signal_text(signal)
-        signal_embedding = signal.get("embedding")
-        if not signal_embedding:
-            signal_embedding = get_embedding(signal_text)
-
-        semantic_score = cosine_similarity(
-            [startup_embedding],
-            [signal_embedding],
-        )[0][0]
+        semantic_score = 0.0
+        if startup_embedding is not None:
+            signal_embedding = signal.get("embedding")
+            if not signal_embedding:
+                try:
+                    signal_embedding = get_embedding(signal_text)
+                except HTTPException as exc:
+                    embedding_error = str(exc.detail)
+                    signal_embedding = None
+            if signal_embedding is not None:
+                semantic_score = cosine_similarity(
+                    [startup_embedding],
+                    [signal_embedding],
+                )[0][0]
 
         keyword_score = calculate_keyword_overlap(
             request.startup_description.lower(),
@@ -191,7 +204,10 @@ def match_startup(request: MatchRequest) -> dict[str, Any]:
         if weight_sum <= 0:
             final_score = 0.0
         else:
-            final_score = (semantic_score * SEMANTIC_WEIGHT + keyword_score * KEYWORD_WEIGHT) / weight_sum
+            if startup_embedding is None:
+                final_score = keyword_score
+            else:
+                final_score = (semantic_score * SEMANTIC_WEIGHT + keyword_score * KEYWORD_WEIGHT) / weight_sum
 
         if final_score >= MIN_MATCH_SCORE:
             reasoning = generate_match_reasoning(
@@ -209,7 +225,11 @@ def match_startup(request: MatchRequest) -> dict[str, Any]:
             )
 
     matches.sort(key=lambda x: x["score"], reverse=True)
-    return {"matches": matches[:MAX_MATCHES]}
+    response: dict[str, Any] = {"matches": matches[:MAX_MATCHES]}
+    if startup_embedding is None and embedding_error:
+        response["warning"] = "Embedding fallback to keyword-only matching"
+        response["embedding_error"] = embedding_error
+    return response
 
 
 @app.post("/email")

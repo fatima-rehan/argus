@@ -5,25 +5,12 @@ import { OrbitControls } from "@react-three/drei";
 import type { Group, Line, Mesh, MeshStandardMaterial } from "three";
 import { BufferGeometry, Float32BufferAttribute, Quaternion, TextureLoader, Vector3 } from "three";
 import type { ReactNode } from "react";
+import type { Signal } from "../lib/api";
 import { Component, Suspense, useMemo, useRef } from "react";
 
-export interface EarthSignal {
-  id: number;
-  lat: number;
-  lng: number;
-  title: string;
-  city: string;
-  state: string;
-  category: string;
-  description: string;
-  budget: number;
-  timeline: string;
-  stakeholders: string[];
-}
-
 interface Earth3DProps {
-  signals: EarthSignal[];
-  onSignalClick: (signal: EarthSignal) => void;
+  signals: Signal[];
+  onSignalClick: (signal: Signal) => void;
 }
 
 const EARTH_TEXTURE =

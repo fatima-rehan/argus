@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 import { HUDPanel } from "./HUDPanel";
 
-export function AIChat() {
+interface AIChatProps {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  loading?: boolean;
+  error?: string | null;
+}
+
+export function AIChat({ value, onChange, onSubmit, loading, error }: AIChatProps) {
   const [openedAt, setOpenedAt] = useState("");
 
   useEffect(() => {
@@ -26,12 +34,25 @@ export function AIChat() {
         <div className="rounded border border-cyber-cyan/20 bg-black/30 px-3 py-2">
           <input
             className="w-full bg-transparent text-xs text-white placeholder:text-white/50 focus:outline-none"
-            placeholder="Type a message..."
+            placeholder="Describe your startup..."
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                onSubmit();
+              }
+            }}
           />
         </div>
+        {error ? <div className="text-[10px] text-red-300">{error}</div> : null}
         <div className="flex justify-end">
-          <button className="rounded border border-cyber-cyan/40 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-cyber-cyan">
-            Send
+          <button
+            className="rounded border border-cyber-cyan/40 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-cyber-cyan disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={onSubmit}
+            disabled={loading || value.trim().length === 0}
+          >
+            {loading ? "Searching..." : "Send"}
           </button>
         </div>
       </div>

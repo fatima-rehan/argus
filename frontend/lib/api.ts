@@ -1,9 +1,25 @@
+export type Signal = {
+  id: number;
+  lat: number;
+  lng: number;
+  city: string;
+  state: string;
+  category: string;
+  title: string;
+  description: string;
+  budget: number;
+  timeline: string;
+  stakeholders: string[];
+};
+
+export type MatchResult = {
+  signal: Signal;
+  score: number;
+  reasoning: string;
+};
+
 export type MatchResponse = {
-  matches: Array<{
-    signal: Record<string, unknown>;
-    score: number;
-    reasoning: string;
-  }>;
+  matches: MatchResult[];
 };
 
 export async function matchStartup(startupDescription: string) {
