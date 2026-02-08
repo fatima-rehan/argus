@@ -117,6 +117,12 @@ function SignalMarker({
           event.stopPropagation();
           onClick();
         }}
+        onPointerOver={() => {
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => {
+          document.body.style.cursor = "default";
+        }}
       >
         <sphereGeometry args={[0.028, 16, 16]} />
         <meshStandardMaterial

@@ -205,10 +205,10 @@ export function ArgusDashboard() {
                 <div className="flex justify-end">
                   <button
                     className="rounded border border-cyber-cyan/40 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-cyber-cyan"
-                    onClick={() => setActiveSignal(null)}
+                    onClick={() => setActiveMatch(null)}
                     aria-label="Close signal detail"
                   >
-                    back
+                    Back
                   </button>
                 </div>
               </div>
@@ -218,9 +218,11 @@ export function ArgusDashboard() {
               <div className="text-sm text-white/60">
                 {isLoading
                   ? "Matching signals..."
-                  : hasSearched
-                    ? "No matches found. Try another description."
-                    : "Enter a startup description to generate matches."}
+                  : signals.length > 0
+                    ? "Select a signal pin to view government entities."
+                    : hasSearched
+                      ? "No matches found. Try another description."
+                      : "Select a signal pin to view government entities."}
               </div>
             </HUDPanel>
           )}

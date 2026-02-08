@@ -42,6 +42,14 @@ export function AIChat({
             className="w-full resize-none bg-transparent text-xs text-white placeholder:text-white/50 focus:outline-none"
             rows={3}
             placeholder="Type a message..."
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                onSubmit();
+              }
+            }}
           />
         </div>
         {error ? <div className="text-[10px] text-red-300">{error}</div> : null}
