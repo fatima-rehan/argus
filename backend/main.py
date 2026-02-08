@@ -4,14 +4,14 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sklearn.metrics.pairwise import cosine_similarity
 import google.generativeai as genai
 
-load_dotenv()
+load_dotenv(find_dotenv())
 
 DATA_DIR = Path(__file__).parent / "data"
 SIGNALS_PATH = DATA_DIR / "signals.json"
