@@ -2,7 +2,7 @@
 
 import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import { Line as DreiLine, OrbitControls } from "@react-three/drei";
-import type { Group, Mesh, MeshStandardMaterial } from "three";
+import type { Group, Mesh, MeshStandardMaterial, Points } from "three";
 import {
   AdditiveBlending,
   BufferGeometry,
@@ -419,7 +419,7 @@ function ConnectionArc({
 /* ─── Particle burst effect radiating outward during search ────── */
 
 function ParticleBurst({ active }: { active: boolean }) {
-  const pointsRef = useRef<{ geometry: BufferGeometry } | null>(null);
+  const pointsRef = useRef<Points | null>(null);
   const count = 200;
   const velocities = useRef<Float32Array>(new Float32Array(count * 3));
   const lifetimes = useRef<Float32Array>(new Float32Array(count));
@@ -449,7 +449,7 @@ function ParticleBurst({ active }: { active: boolean }) {
 
   useFrame((_, delta) => {
     if (!pointsRef.current?.geometry) return;
-    const posAttr = pointsRef.current.geometry.getAttribute("position");
+    const posAttr = (pointsRef.current.geometry as BufferGeometry).getAttribute("position");
     if (!posAttr) return;
     const positions = posAttr.array as Float32Array;
 
@@ -485,12 +485,8 @@ function ParticleBurst({ active }: { active: boolean }) {
   });
 
   return (
-    <points raycast={() => null}>
-      <bufferGeometry ref={(geo) => {
-        if (geo && pointsRef.current?.geometry !== geo) {
-          pointsRef.current = { geometry: geo };
-        }
-      }}>
+    <points ref={pointsRef} raycast={() => null}>
+      <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
           args={[initialPositions, 3]}
